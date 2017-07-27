@@ -7,9 +7,11 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.support.annotation.IntDef;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -41,6 +43,7 @@ public class RotateMsgView extends ViewGroup {
     private boolean isRequestLayout;
     private boolean isStartAnimator;
     private boolean isFirstLayout = true;
+    private Animation showAnimation = new AlphaAnimation(0f,1f);
 
     public RotateMsgView(Context context) {
         this(context, null);
@@ -56,9 +59,7 @@ public class RotateMsgView extends ViewGroup {
     }
 
     private void initView(Context context, AttributeSet attrs, int defStyleAttr) {
-        LinearLayout linearLayout = new LinearLayout(context);
-        linearLayout.setLayoutParams(generateDefaultLayoutParams());
-        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        showAnimation.setDuration(mDelayMillis);
 
     }
 
@@ -121,7 +122,11 @@ public class RotateMsgView extends ViewGroup {
             }
             int startHeight;
             if (isStartAnimator) {
-                startHeight = (int) (animatedValue - getChildAt(firstVisibleIndex).getMeasuredHeight());
+                if (Math.round(animatedValue * 10) != 0) {
+                    startHeight = (int) (animatedValue - getChildAt(firstVisibleIndex).getMeasuredHeight());
+                } else {
+                    startHeight = -getChildAt(firstVisibleIndex).getMeasuredHeight();
+                }
             } else {
                 startHeight = 0;
             }
@@ -142,7 +147,8 @@ public class RotateMsgView extends ViewGroup {
         if (animator != null && !animator.isRunning() && !isStartAnimator) {
             int index = getGoneViewIndex();
             View view = getChildAt(index);
-
+            view.layout(0, childHeightSum - view.getMeasuredHeight(), view.getMeasuredWidth(), childHeightSum);
+            view.startAnimation(showAnimation);
         }
     }
 
@@ -303,12 +309,14 @@ public class RotateMsgView extends ViewGroup {
                         }
                     }, mDelayMillis);
                     requestLayout();
+                    Log.v("shan", "=====================================");
                 }
             });
             animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override
                 public void onAnimationUpdate(ValueAnimator animation) {
                     animatedValue = (Float) animation.getAnimatedValue();
+                    Log.v("shan", "animatedValue:" + animatedValue);
 //                    switch (mode) {
 //                        case Mode.MODE_ALPHA:
 //
