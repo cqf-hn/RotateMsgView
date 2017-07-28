@@ -19,7 +19,7 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * TODO 未完成()
  * 1.传输数据，数据发生（notifyDataSetChange）改变布局也发生相应的改变（改变可平滑的变化）
- * 2.传输与数据对应的View
+ * finish 2.传输与数据对应的View
  * 3.确定点击对应的View触发相应的事件(setOnItemClick(int position ,T data))
  * 4.确定布局方式：可自定义适配消息的高度（可以显示全部消息时，不动作）
  * 5.移动只移动一条消息（扩展可设定移动多条消息）
@@ -44,6 +44,7 @@ public class RotateMsgView extends ViewGroup {
     private boolean isStartAnimator;
     private boolean isFirstLayout = true;
     private Animation showAnimation = new AlphaAnimation(0f,1f);
+    private Animation hideAnimation = new AlphaAnimation(1f,0f);
 
     public RotateMsgView(Context context) {
         this(context, null);
@@ -60,7 +61,7 @@ public class RotateMsgView extends ViewGroup {
 
     private void initView(Context context, AttributeSet attrs, int defStyleAttr) {
         showAnimation.setDuration(mDelayMillis);
-
+        hideAnimation.setDuration(mDelayMillis);
     }
 
     public CustomAdapter getAdapter() {
@@ -81,7 +82,6 @@ public class RotateMsgView extends ViewGroup {
             View view = adapter.getView(i, this);
             addView(view);
         }
-        //放在start处调用
         requestLayout();
         invalidate();
     }
@@ -346,6 +346,7 @@ public class RotateMsgView extends ViewGroup {
                 animator.setValues(propertyValuesHolder);
                 animator.setDuration(duration);
                 //animator.setStartDelay(delayMillis);// 这一行代码不能再判断条件后执行
+
                 animator.start();
             }
         }
