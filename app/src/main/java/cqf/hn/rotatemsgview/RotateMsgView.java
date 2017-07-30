@@ -31,20 +31,20 @@ import java.lang.annotation.RetentionPolicy;
 public class RotateMsgView extends ViewGroup {
 
     private CustomAdapter adapter;
-    private int firstVisibleIndex = 0;
+    private int firstViewIndex = 0;//在初始值和动画结束后才会被赋值
     private int childHeightSum = 0;
-    private int moveY = 0;
-    private int mode;
+    private int mode;//在动画结束后，才会触发效果
+    private int lastMode;//在动画开始后保存mode，用以处理切换动画时的状态错乱
     private int duration = 3000;
-    private long mDelayMillis = 1 * 1000;//延时启动动画的时间
+    private long mDelayMillis = 3 * 1000;//延时启动动画的时间
     private ValueAnimator animator;
     private PropertyValuesHolder propertyValuesHolder;
     private float animatedValue;
-    private boolean isRequestLayout;
-    private boolean isStartAnimator;
     private boolean isFirstLayout = true;
-    private Animation showAnimation = new AlphaAnimation(0f,1f);
-    private Animation hideAnimation = new AlphaAnimation(1f,0f);
+    private Animation showAnimation = new AlphaAnimation(0f, 1f);
+    private Animation hideAnimation = new AlphaAnimation(1f, 0f);
+    private Runnable animatorRunnable;
+    private boolean hasChangeFirstIndexWithMode;
 
     public RotateMsgView(Context context) {
         this(context, null);
@@ -62,18 +62,55 @@ public class RotateMsgView extends ViewGroup {
     private void initView(Context context, AttributeSet attrs, int defStyleAttr) {
         showAnimation.setDuration(mDelayMillis);
         hideAnimation.setDuration(mDelayMillis);
+        animatorRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (hasChangeFirstIndexWithMode) {
+                    if (lastMode != mode) {
+                        switch (mode) {
+                            case Mode.MODE_ALPHA:
+                                break;
+                            case Mode.MODE_TRANSLATION_UP:
+                                firstViewIndex++;
+                                break;
+                            case Mode.MODE_TRANSLATION_DOWN:
+                                firstViewIndex--;
+                                break;
+                        }
+                        if (firstViewIndex >= getChildCount()) {
+                            firstViewIndex = 0;
+                        }
+                        if (firstViewIndex < 0) {
+                            firstViewIndex = getChildCount() - 1;
+                        }
+                    }
+                }
+                switch (mode) {
+                    case Mode.MODE_ALPHA:
+                        startAnimator(1, 0, duration, mDelayMillis);
+                        break;
+                    case Mode.MODE_TRANSLATION_UP:
+                        startAnimator(0, getChildAt(firstViewIndex).getMeasuredHeight(), duration, mDelayMillis);
+                        break;
+                    case Mode.MODE_TRANSLATION_DOWN:
+                        startAnimator(getChildAt(firstViewIndex).getMeasuredHeight(), 0, duration, mDelayMillis);
+                        break;
+                }
+                lastMode = mode;
+            }
+        };
     }
 
     public CustomAdapter getAdapter() {
         return adapter;
     }
 
-    public int getFirstVisibleIndex() {
-        return firstVisibleIndex;
+    public int getFirstViewIndex() {
+        return firstViewIndex;
     }
 
-    public void setFirstVisibleIndex(int firstVisibleIndex) {
-        this.firstVisibleIndex = firstVisibleIndex;
+    public void setFirstViewIndex(int firstViewIndex) {
+        this.firstViewIndex = firstViewIndex;
     }
 
     public void setAdapter(CustomAdapter adapter) {
@@ -92,6 +129,11 @@ public class RotateMsgView extends ViewGroup {
     }
 
     public void setMode(@Mode int mode) {
+        if (animator != null && animator.isRunning()) {
+            hasChangeFirstIndexWithMode = false;
+        } else {
+            hasChangeFirstIndexWithMode = true;
+        }
         this.mode = mode;
     }
 
@@ -99,18 +141,12 @@ public class RotateMsgView extends ViewGroup {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         childHeightSum = 0;
-        moveY = 0;
         for (int i = 0; i < getChildCount(); i++) {
             View child = this.getChildAt(i);
             setItemViewLayoutParams(child);
             this.measureChild(child, widthMeasureSpec, heightMeasureSpec);
             int ch = child.getMeasuredHeight();
             childHeightSum += ch;
-            if (firstVisibleIndex != 0) {
-                if (i < firstVisibleIndex) {
-                    moveY += ch;
-                }
-            }
         }
     }
 
@@ -120,23 +156,46 @@ public class RotateMsgView extends ViewGroup {
             if (getChildCount() == 0) {
                 return;
             }
-            int startHeight;
-            if (isStartAnimator) {
-                if (Math.round(animatedValue * 10) != 0) {
-                    startHeight = (int) (animatedValue - getChildAt(firstVisibleIndex).getMeasuredHeight());
-                } else {
-                    startHeight = -getChildAt(firstVisibleIndex).getMeasuredHeight();
+            int startHeight = 0;
+            int firstViewHeight = getChildAt(firstViewIndex).getMeasuredHeight();
+            if (animator != null && animator.isRunning()) {
+                switch (lastMode) {
+                    case Mode.MODE_ALPHA:
+                        break;
+                    case Mode.MODE_TRANSLATION_UP://↑（0~height）
+                        if (Math.round(animatedValue * 10) < Math.round(firstViewHeight * 10)) {
+                            startHeight = (int) -animatedValue;
+                        } else {
+                            startHeight = -firstViewHeight;
+                        }
+                        break;
+                    case Mode.MODE_TRANSLATION_DOWN://↓（height~0）//Math.round(animatedValue * 10) != 0
+                        if (Math.round(animatedValue * 10) != 0) {
+                            startHeight = (int) -animatedValue;
+                        } else {
+                            startHeight = 0;
+                        }
+                        break;
                 }
             } else {
-                startHeight = 0;
+                switch (lastMode) {
+                    case Mode.MODE_ALPHA:
+                        break;
+                    case Mode.MODE_TRANSLATION_UP:
+                        startHeight = 0;
+                        break;
+                    case Mode.MODE_TRANSLATION_DOWN:
+                        startHeight = -firstViewHeight;
+                        break;
+                }
             }
-            for (int i = firstVisibleIndex; i < getChildCount(); i++) {
+            for (int i = firstViewIndex; i < getChildCount(); i++) {
                 View child = this.getChildAt(i);
                 int ch = child.getMeasuredHeight();
                 child.layout(0, startHeight, child.getMeasuredWidth(), startHeight + ch);
                 startHeight += ch;
             }
-            for (int i = 0; i < firstVisibleIndex; i++) {
+            for (int i = 0; i < firstViewIndex; i++) {
                 View child = this.getChildAt(i);
                 int ch = child.getMeasuredHeight();
                 child.layout(0, startHeight, child.getMeasuredWidth(), startHeight + ch);
@@ -144,11 +203,99 @@ public class RotateMsgView extends ViewGroup {
             }
             isFirstLayout = false;
         }
-        if (animator != null && !animator.isRunning() && !isStartAnimator) {
+        //动画结束，运行到这里
+        if (animator != null && !animator.isRunning()) {
             int index = getGoneViewIndex();
             View view = getChildAt(index);
-            view.layout(0, childHeightSum - view.getMeasuredHeight(), view.getMeasuredWidth(), childHeightSum);
-            view.startAnimation(showAnimation);
+            if (mode == Mode.MODE_TRANSLATION_UP && lastMode == Mode.MODE_TRANSLATION_UP) {
+                view.layout(0, childHeightSum - view.getMeasuredHeight(), view.getMeasuredWidth(), childHeightSum);
+                view.startAnimation(showAnimation);
+            } else if (mode == Mode.MODE_TRANSLATION_DOWN && lastMode == Mode.MODE_TRANSLATION_DOWN) {
+                view.layout(0, childHeightSum - view.getMeasuredHeight(), view.getMeasuredWidth(), childHeightSum);
+                view.startAnimation(hideAnimation);
+            }
+        }
+    }
+
+    private int getGoneViewIndex() {
+        int index = 0;
+        switch (mode) {
+            case Mode.MODE_ALPHA:
+            case Mode.MODE_TRANSLATION_UP:
+                index = firstViewIndex - 1;
+                break;
+            case Mode.MODE_TRANSLATION_DOWN:
+                index = firstViewIndex;
+                break;
+        }
+        if (index < 0) {
+            index = getChildCount() - 1;
+        }
+        return index;
+    }
+
+    public void start() {
+        postDelayed(animatorRunnable, mDelayMillis);
+    }
+
+    private void startAnimator(float start, float end, long duration, long delayMillis) {
+        if (animator == null) {
+            animator = ValueAnimator.ofFloat(start, end);
+            animator.setDuration(duration);
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    //初始化动画执行前的布局
+                    switch (mode) {
+                        case Mode.MODE_ALPHA:
+                        case Mode.MODE_TRANSLATION_UP:
+                            if (lastMode == mode) {
+                                firstViewIndex++;
+                            }
+                            break;
+                        case Mode.MODE_TRANSLATION_DOWN:
+                            if (lastMode == mode) {
+                                firstViewIndex--;
+                            }
+                            break;
+                    }
+                    if (firstViewIndex >= getChildCount()) {
+                        firstViewIndex = 0;
+                    }
+                    if (firstViewIndex < 0) {
+                        firstViewIndex = getChildCount() - 1;
+                    }
+                    postDelayed(animatorRunnable, mDelayMillis);
+                    requestLayout();
+                    Log.v("shan", "=====================================");
+                }
+            });
+            animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    animatedValue = (Float) animation.getAnimatedValue();
+                    Log.v("shan", "animatedValue:" + animatedValue);
+                    requestLayout();
+                }
+            });
+            animator.start();
+        } else {//动画取消后再运行，会重置一切animator的参数
+            if (!animator.isRunning()) {
+                if (null == propertyValuesHolder) {
+                    propertyValuesHolder = PropertyValuesHolder.ofFloat("y", start, end);
+                } else {
+                    propertyValuesHolder.setFloatValues(start, end);
+                }
+                animator.setValues(propertyValuesHolder);
+                animator.setDuration(duration);
+                animator.start();
+            }
         }
     }
 
@@ -184,26 +331,6 @@ public class RotateMsgView extends ViewGroup {
         return new RotateMsgView.LayoutParams(getContext(), attrs);
     }
 
-    private int getGoneViewIndex() {
-        int index = 0;
-        switch (mode) {
-            case Mode.MODE_ALPHA:
-            case Mode.MODE_TRANSLATION_UP:
-                index = firstVisibleIndex - 1;
-                break;
-            case Mode.MODE_TRANSLATION_DOWN:
-                index = firstVisibleIndex + 1;
-                break;
-        }
-        if (index >= getChildCount()) {
-            index = 0;
-        }
-        if (index < 0) {
-            index = getChildCount() - 1;
-        }
-        return index;
-    }
-
     public static class LayoutParams extends ViewGroup.LayoutParams {
         public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
@@ -229,126 +356,5 @@ public class RotateMsgView extends ViewGroup {
         int MODE_TRANSLATION_UP = 0;
         int MODE_TRANSLATION_DOWN = 1;
         int MODE_ALPHA = 2;
-    }
-
-    public void start() {
-        postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                switch (mode) {
-                    case Mode.MODE_ALPHA:
-                        startAnimator(1, 0, duration, mDelayMillis, mode);
-                        break;
-                    case Mode.MODE_TRANSLATION_UP:
-                        startAnimator(getChildAt(firstVisibleIndex).getMeasuredHeight(), 0, duration, mDelayMillis, mode);
-                        break;
-                    case Mode.MODE_TRANSLATION_DOWN:
-                        startAnimator(0, getChildAt(firstVisibleIndex).getMeasuredHeight(), duration, mDelayMillis, mode);
-                        break;
-                }
-            }
-        }, mDelayMillis);
-
-    }
-
-    private void startAnimator(float start, float end, long duration, long delayMillis, @Mode final int mode) {
-        if (animator == null) {
-            animator = ValueAnimator.ofFloat(start, end);
-            animator.setDuration(duration);
-            animator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationStart(Animator animation) {
-                    isStartAnimator = true;
-                    switch (mode) {
-                        case Mode.MODE_ALPHA:
-
-                            break;
-                        case Mode.MODE_TRANSLATION_UP:
-
-                            break;
-                        case Mode.MODE_TRANSLATION_DOWN:
-
-                            break;
-                    }
-                }
-
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    super.onAnimationEnd(animation);
-                    switch (mode) {
-                        case Mode.MODE_ALPHA:
-                        case Mode.MODE_TRANSLATION_UP:
-                            firstVisibleIndex++;
-                            break;
-                        case Mode.MODE_TRANSLATION_DOWN:
-                            firstVisibleIndex--;
-                            break;
-                    }
-                    if (firstVisibleIndex >= getChildCount()) {
-                        firstVisibleIndex = 0;
-                    }
-                    if (firstVisibleIndex < 0) {
-                        firstVisibleIndex = getChildCount() - 1;
-                    }
-
-                    isStartAnimator = false;
-                    postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            switch (mode) {
-                                case Mode.MODE_ALPHA:
-                                    startAnimator(1, 0, RotateMsgView.this.duration, mDelayMillis, mode);
-                                    break;
-                                case Mode.MODE_TRANSLATION_UP:
-                                    startAnimator(getChildAt(firstVisibleIndex).getMeasuredHeight(), 0, RotateMsgView.this.duration, mDelayMillis, mode);
-                                    break;
-                                case Mode.MODE_TRANSLATION_DOWN:
-                                    startAnimator(0, getChildAt(firstVisibleIndex).getMeasuredHeight(), RotateMsgView.this.duration, mDelayMillis, mode);
-                                    break;
-                            }
-                        }
-                    }, mDelayMillis);
-                    requestLayout();
-                    Log.v("shan", "=====================================");
-                }
-            });
-            animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    animatedValue = (Float) animation.getAnimatedValue();
-                    Log.v("shan", "animatedValue:" + animatedValue);
-//                    switch (mode) {
-//                        case Mode.MODE_ALPHA:
-//
-//                            break;
-//                        case Mode.MODE_TRANSLATION_UP:
-//                            for (int i = 0; i < getChildCount(); i++) {
-//                                View view = getChildAt(i);
-//                                view.setTranslationY((animatedValue - getChildAt(firstVisibleIndex).getMeasuredHeight()));
-//                            }
-//                            break;
-//                        case Mode.MODE_TRANSLATION_DOWN:
-//
-//                            break;
-//                    }
-                    requestLayout();
-                }
-            });
-            //animator.setStartDelay(delayMillis);
-            animator.start();
-        } else {//动画取消后再运行，会重置一切animator的参数
-            if (!animator.isRunning()) {
-                if (null == propertyValuesHolder) {
-                    propertyValuesHolder = PropertyValuesHolder.ofFloat("y", start, end);
-                } else {
-                    propertyValuesHolder.setFloatValues(start, end);
-                }
-                animator.setValues(propertyValuesHolder);
-                animator.setDuration(duration);
-                //animator.setStartDelay(delayMillis);// 这一行代码不能再判断条件后执行
-
-                animator.start();
-            }
-        }
     }
 }

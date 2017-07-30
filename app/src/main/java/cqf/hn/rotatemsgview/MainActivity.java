@@ -22,7 +22,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rotateMsgView = (RotateMsgView) findViewById(R.id.rotateMsgView);
         Button btn = (Button) findViewById(R.id.button);
         btn.setOnClickListener(this);
-        //rotateMsgView.setFirstVisibleIndex(3);//测试
+        //rotateMsgView.setFirstViewIndex(3);//测试
         rotateMsgView.setMode(RotateMsgView.Mode.MODE_ALPHA);
         rotateMsgView.setAdapter(new CustomAdapter() {
             @Override
