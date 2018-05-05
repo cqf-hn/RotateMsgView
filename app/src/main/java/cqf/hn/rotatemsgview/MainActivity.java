@@ -1,6 +1,5 @@
 package cqf.hn.rotatemsgview;
 
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -10,6 +9,9 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import hn.cqf.com.lib.CustomAdapter;
+import hn.cqf.com.lib.RotateMsgView;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -44,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 view.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        Toast.makeText(MainActivity.this, position + "", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this,position + "", Toast.LENGTH_SHORT).show();
                     }
                 });
                 return view;
@@ -58,12 +60,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public int getViewTypeCount() {
                 return 0;
-            }
-        });
-        rotateMsgView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, ListViewActivity.class));
             }
         });
         rotateMsgView.setMode(RotateMsgView.Mode.MODE_TRANSLATION_UP);

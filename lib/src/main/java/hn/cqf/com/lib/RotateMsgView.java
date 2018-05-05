@@ -1,4 +1,4 @@
-package cqf.hn.rotatemsgview;
+package hn.cqf.com.lib;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -17,16 +17,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * TODO 未完成()
- * 1.传输数据，数据发生（notifyDataSetChange）改变布局也发生相应的改变（改变可平滑的变化）
- * finish 2.传输与数据对应的View
- * 3.确定点击对应的View触发相应的事件(setOnItemClick(int position ,T data))
- * 4.确定布局方式：可自定义适配消息的高度（可以显示全部消息时，不动作）
- * 5.移动只移动一条消息（扩展可设定移动多条消息）
- * 6.固定动画方式向上移动|向下移动|渐变消失显示
- * 7.可设定动画时间，停留时间
- * 如何处理当数据传输进来，子View读取数据，并按照数据的排序，顺序显示在View上，
- * 如何提供第三方人员对子View设置数据
+ * 仿RecyclerView或ListView的回收机制
  */
 public class RotateMsgView extends ViewGroup {
 
@@ -355,6 +346,6 @@ public class RotateMsgView extends ViewGroup {
     public @interface Mode {
         int MODE_TRANSLATION_UP = 0;
         int MODE_TRANSLATION_DOWN = 1;
-        int MODE_ALPHA = 2;
+        int MODE_ALPHA = 2;//淡入淡出的效果未实现
     }
 }

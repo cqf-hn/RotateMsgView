@@ -1,4 +1,4 @@
-package cqf.hn.rotatemsgview;
+package hn.cqf.com.lib;
 
 import android.view.View;
 import android.view.ViewGroup;

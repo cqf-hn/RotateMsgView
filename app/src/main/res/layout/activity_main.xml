@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     tools:context="cqf.hn.rotatemsgview.MainActivity">
 
-    <cqf.hn.rotatemsgview.RotateMsgView
+    <hn.cqf.com.lib.RotateMsgView
         android:id="@+id/rotateMsgView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
