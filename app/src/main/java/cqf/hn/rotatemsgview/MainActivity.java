@@ -1,5 +1,6 @@
 package cqf.hn.rotatemsgview;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -24,6 +25,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rotateMsgView = (RotateMsgView) findViewById(R.id.rotateMsgView);
         Button btn = (Button) findViewById(R.id.button);
         btn.setOnClickListener(this);
+        findViewById(R.id.button1).setOnClickListener(this);
         //rotateMsgView.setFirstViewIndex(3);//测试
         rotateMsgView.setMode(RotateMsgView.Mode.MODE_ALPHA);
         rotateMsgView.setAdapter(new CustomAdapter() {
@@ -72,6 +74,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.button:
                 rotateMsgView.setMode(rotateMsgView.getMode() == RotateMsgView.Mode.MODE_TRANSLATION_UP ?
                         RotateMsgView.Mode.MODE_TRANSLATION_DOWN : RotateMsgView.Mode.MODE_TRANSLATION_UP);
+                break;
+            case R.id.button1:
+                startActivity(new Intent(this,NextActivity.class));
                 break;
         }
     }

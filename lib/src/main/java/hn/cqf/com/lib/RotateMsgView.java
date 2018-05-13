@@ -18,6 +18,8 @@ import java.lang.annotation.RetentionPolicy;
 
 /**
  * 仿RecyclerView或ListView的回收机制
+ * TODO 添加设置MOVE_SPACE  如MOVE_SPACE = 1，一次移动一个View的高度；MOVE_SPACE = 2，一次移动两个View的高度
+ * TODO 改进研究ListView和RecyclerView 的回收机制，将回收机制添加入其中
  */
 public class RotateMsgView extends ViewGroup {
 
@@ -30,12 +32,14 @@ public class RotateMsgView extends ViewGroup {
     private long mDelayMillis = 3 * 1000;//延时启动动画的时间
     private ValueAnimator animator;
     private PropertyValuesHolder propertyValuesHolder;
-    private float animatedValue;
+    private Float animatedValue;
     private boolean isFirstLayout = true;
     private Animation showAnimation = new AlphaAnimation(0f, 1f);
     private Animation hideAnimation = new AlphaAnimation(1f, 0f);
     private Runnable animatorRunnable;
     private boolean hasChangeFirstIndexWithMode;
+    private boolean isDetach;
+    private int surplusDuration;
 
     public RotateMsgView(Context context) {
         this(context, null);
@@ -48,6 +52,84 @@ public class RotateMsgView extends ViewGroup {
     public RotateMsgView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initView(context, attrs, defStyleAttr);
+    }
+
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (visibility == VISIBLE) {
+            isDetach = false;
+            if (surplusDuration != 0 && animatedValue.intValue() != 0) {
+                switch (mode) {
+                    case Mode.MODE_ALPHA:
+                        startAnimator(1, 0, duration, mDelayMillis);
+                        break;
+                    case Mode.MODE_TRANSLATION_UP:
+                        startAnimator(animatedValue, getChildAt(firstViewIndex).getMeasuredHeight(), surplusDuration, mDelayMillis);
+                        break;
+                    case Mode.MODE_TRANSLATION_DOWN:
+                        startAnimator(animatedValue, 0, surplusDuration, mDelayMillis);
+                        break;
+                }
+                surplusDuration = 0;
+            } else {
+                postDelayed(animatorRunnable, mDelayMillis);
+                requestLayout();
+            }
+        } else {
+            removeCallbacks(animatorRunnable);
+            isDetach = true;
+            if (animator != null && animator.isRunning()) {
+                surplusDuration = Math.abs((int) (duration * (1 - animatedValue / getChildAt(firstViewIndex).getMeasuredHeight())));
+                animator.cancel();
+            }
+            if (showAnimation != null && !showAnimation.hasEnded()) {
+                showAnimation.cancel();
+            }
+            if (hideAnimation != null && !hideAnimation.hasEnded()) {
+                hideAnimation.cancel();
+            }
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        removeCallbacks(animatorRunnable);
+        isDetach = true;
+        if (animator.isRunning() && animatedValue.intValue() != 0) {
+            surplusDuration = (int) (duration * (1 - animatedValue / getChildAt(firstViewIndex).getMeasuredHeight()));
+            animator.cancel();
+        }
+        if (!showAnimation.hasEnded()) {
+            showAnimation.cancel();
+        }
+        if (!hideAnimation.hasEnded()) {
+            hideAnimation.cancel();
+        }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        isDetach = false;
+        if (surplusDuration != 0) {
+            switch (mode) {
+                case Mode.MODE_ALPHA:
+                    startAnimator(1, 0, duration, mDelayMillis);
+                    break;
+                case Mode.MODE_TRANSLATION_UP:
+                    startAnimator(animatedValue, getChildAt(firstViewIndex).getMeasuredHeight(), surplusDuration, mDelayMillis);
+                    break;
+                case Mode.MODE_TRANSLATION_DOWN:
+                    startAnimator(animatedValue, 0, surplusDuration, mDelayMillis);
+                    break;
+            }
+            surplusDuration = 0;
+        } else {
+            postDelayed(animatorRunnable, mDelayMillis);
+            requestLayout();
+        }
     }
 
     private void initView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -195,7 +277,7 @@ public class RotateMsgView extends ViewGroup {
             isFirstLayout = false;
         }
         //动画结束，运行到这里
-        if (animator != null && !animator.isRunning()) {
+        if (animator != null && !animator.isRunning() && !isDetach) {
             int index = getGoneViewIndex();
             View view = getChildAt(index);
             if (mode == Mode.MODE_TRANSLATION_UP && lastMode == Mode.MODE_TRANSLATION_UP) {
@@ -243,28 +325,31 @@ public class RotateMsgView extends ViewGroup {
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
                     //初始化动画执行前的布局
-                    switch (mode) {
-                        case Mode.MODE_ALPHA:
-                        case Mode.MODE_TRANSLATION_UP:
-                            if (lastMode == mode) {
-                                firstViewIndex++;
-                            }
-                            break;
-                        case Mode.MODE_TRANSLATION_DOWN:
-                            if (lastMode == mode) {
-                                firstViewIndex--;
-                            }
-                            break;
+                    if (!isDetach) {
+                        switch (mode) {
+                            case Mode.MODE_ALPHA:
+                            case Mode.MODE_TRANSLATION_UP:
+                                if (lastMode == mode) {
+                                    firstViewIndex++;
+                                }
+                                break;
+                            case Mode.MODE_TRANSLATION_DOWN:
+                                if (lastMode == mode) {
+                                    firstViewIndex--;
+                                }
+                                break;
+                        }
+                        if (firstViewIndex >= getChildCount()) {
+                            firstViewIndex = 0;
+                        }
+                        if (firstViewIndex < 0) {
+                            firstViewIndex = getChildCount() - 1;
+                        }
+                        postDelayed(animatorRunnable, mDelayMillis);
+                        requestLayout();
+                        Log.v("shan", "=====================================");
+
                     }
-                    if (firstViewIndex >= getChildCount()) {
-                        firstViewIndex = 0;
-                    }
-                    if (firstViewIndex < 0) {
-                        firstViewIndex = getChildCount() - 1;
-                    }
-                    postDelayed(animatorRunnable, mDelayMillis);
-                    requestLayout();
-                    Log.v("shan", "=====================================");
                 }
             });
             animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
